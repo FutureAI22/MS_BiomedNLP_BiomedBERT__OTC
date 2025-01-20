@@ -2,41 +2,30 @@ import streamlit as st
 from transformers import AutoModelForQuestionAnswering, AutoTokenizer
 from huggingface_hub import login
 import torch
-
-# Get the Hugging Face token from Streamlit secrets
+# Login to Hugging Face
 hf_token = st.secrets["HF_TOKEN"]
-
-# Log in with the Hugging Face token
 login(token=hf_token)
+# Load the pre-trained model and tokenizer
+model_name = "Alaaeldin/MS-BiomedNLP-BiomedBERT-OTC"  # Use your model name here
 
-# Load model and tokenizer from Hugging Face Hub
-model_name = "Alaaeldin/MS-BiomedNLP-BiomedBERT-OTC"
 model = AutoModelForQuestionAnswering.from_pretrained(model_name)
 tokenizer = AutoTokenizer.from_pretrained(model_name)
+# Streamlit interface
+st.title("BiomedBERT Q&A")
 
-# Set up the Streamlit interface
-st.title("Biomedical Q&A with BiomedBERT")
-st.markdown("Ask questions about biomedical topics based on scientific literature!")
+# Get user input for the question
+question = st.text_input("Ask a question related to biomedical research:")
 
-# Get user input (question and context)
-context = st.text_area("Enter the context (scientific text):")
-question = st.text_input("Enter your question:")
-
-if context and question:
-    # Tokenize input
-    inputs = tokenizer(question, context, return_tensors="pt", truncation=True, padding=True)
-
-    # Get model's predictions
+# If the user submits a question
+if question:
+    # Prepare input text for the model
+    inputs = tokenizer(question, return_tensors="pt")
     with torch.no_grad():
+        # Generate the model's answer
         outputs = model(**inputs)
-
-    # Get answer start and end positions
-    start_index = torch.argmax(outputs.start_logits)
-    end_index = torch.argmax(outputs.end_logits)
-
-    # Convert token indices back to text
-    answer_tokens = inputs["input_ids"][0][start_index:end_index + 1]
-    answer = tokenizer.decode(answer_tokens)
+        answer_start = torch.argmax(outputs.start_logits)
+        answer_end = torch.argmax(outputs.end_logits)
+        answer = tokenizer.convert_tokens_to_string(tokenizer.convert_ids_to_tokens(inputs["input_ids"][0][answer_start:answer_end+1]))
 
     # Display the answer
-    st.write(f"**Answer:** {answer}")
+    st.write("Answer: ", answer)
